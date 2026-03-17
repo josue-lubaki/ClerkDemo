@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -26,9 +27,19 @@ android {
             load(rootProject.file("local.properties").inputStream())
         }
         val apiKey: String = localProperties.getProperty("CLERK_PUBLISHABLE_KEY")
+        val supabaseUrl: String = localProperties.getProperty("SUPABASE_URL")
+        val supabaseKey: String = localProperties.getProperty("SUPABASE_KEY")
 
         require(apiKey.isNotEmpty()) {
             "API_KEY manquante dans local.properties"
+        }
+
+        require(supabaseUrl.isNotEmpty()) {
+            "SUPABASE_URL manquante dans local.properties"
+        }
+
+        require(supabaseKey.isNotEmpty()) {
+            "SUPABASE_KEY manquante dans local.properties"
         }
 
         buildConfigField(
@@ -36,6 +47,19 @@ android {
             "CLERK_PUBLISHABLE_KEY",
             "\"$apiKey\""
         )
+
+        buildConfigField(
+            "String",
+            "SUPABASE_URL",
+            "\"$supabaseUrl\""
+        )
+        buildConfigField(
+            "String",
+            "SUPABASE_KEY",
+            "\"$supabaseKey\""
+        )
+
+
     }
 
     buildTypes {
@@ -79,4 +103,10 @@ dependencies {
     implementation("com.clerk:clerk-android-api:1.0.10")
     implementation("com.clerk:clerk-android-ui:1.0.10")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
+
+    // supabase
+    implementation(platform("io.github.jan-tennert.supabase:bom:3.4.1"))
+    implementation("io.github.jan-tennert.supabase:postgrest-kt")
+    implementation("io.github.jan-tennert.supabase:auth-kt")
+    implementation("io.github.jan-tennert.supabase:realtime-kt")
 }

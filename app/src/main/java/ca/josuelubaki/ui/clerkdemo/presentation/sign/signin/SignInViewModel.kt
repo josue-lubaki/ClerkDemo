@@ -7,6 +7,8 @@ import com.clerk.api.Clerk
 import com.clerk.api.network.serialization.errorMessage
 import com.clerk.api.network.serialization.onFailure
 import com.clerk.api.network.serialization.onSuccess
+import com.clerk.api.network.serialization.successOrNull
+import com.clerk.api.session.GetTokenOptions
 import com.clerk.api.signin.SignIn
 import com.clerk.api.signin.attemptSecondFactor
 import com.clerk.api.signin.prepareSecondFactor
@@ -23,18 +25,25 @@ class SignInViewModel : ViewModel() {
         viewModelScope.launch {
             SignIn.create(SignIn.CreateParams.Strategy.Password(identifier = email, password = password))
                 .onSuccess { signIn ->
+                    Log.d("SignInViewModel", "SignIn success — status=${signIn.status}, sessionId=${signIn.createdSessionId}")
                     when (signIn.status) {
                         SignIn.Status.COMPLETE -> {
                             signIn.createdSessionId?.let { sessionId ->
                                 Clerk.auth.setActive(sessionId = sessionId)
-                                    .onSuccess { _uiState.value = SignInUiState.Success }
+                                    .onSuccess {
+                                        logClerkJwt()
+                                        _uiState.value = SignInUiState.Success
+                                    }
                                     .onFailure { Log.e("SignInViewModel", "setActive failed: ${it.errorMessage}", it.throwable) }
                             }
                         }
                         SignIn.Status.NEEDS_CLIENT_TRUST,
                         SignIn.Status.NEEDS_SECOND_FACTOR -> {
                             signIn.prepareSecondFactor()
-                                .onSuccess { _uiState.value = SignInUiState.NeedsClientTrust }
+                                .onSuccess {
+                                    _uiState.value = SignInUiState.NeedsClientTrust
+                                    logClerkJwt()
+                                }
                                 .onFailure { Log.e("SignInViewModel", "prepareSecondFactor failed: ${it.errorMessage}", it.throwable) }
                         }
                         else -> Log.w("SignInViewModel", "Unhandled status: ${signIn.status}")
@@ -59,7 +68,10 @@ class SignInViewModel : ViewModel() {
                 .onSuccess { signIn ->
                     signIn.createdSessionId?.let { sessionId ->
                         Clerk.auth.setActive(sessionId = sessionId)
-                            .onSuccess { _uiState.value = SignInUiState.Success }
+                            .onSuccess {
+                                logClerkJwt()
+                                _uiState.value = SignInUiState.Success
+                            }
                             .onFailure { Log.e("SignInViewModel", "setActive failed: ${it.errorMessage}", it.throwable) }
                     }
                 }
@@ -67,6 +79,15 @@ class SignInViewModel : ViewModel() {
                     Log.e("SignInViewModel", "verifyClientTrust failed: ${it.errorMessage}", it.throwable)
                     _uiState.value = SignInUiState.Error
                 }
+        }
+    }
+
+    private suspend fun logClerkJwt() {
+        val token = Clerk.auth.getToken(GetTokenOptions(template = "supabase")).successOrNull()
+        if (token != null) {
+            Log.d("SignInViewModel", "✅ JWT Clerk obtenu — longueur=${token.length}, début=${token.take(20)}...")
+        } else {
+            Log.w("SignInViewModel", "⚠️ JWT Clerk null — vérifie le JWT Template 'ClerkDemo' dans le dashboard Clerk")
         }
     }
 }
